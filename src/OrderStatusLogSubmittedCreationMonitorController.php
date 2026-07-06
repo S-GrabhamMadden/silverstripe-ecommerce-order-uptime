@@ -2,6 +2,7 @@
 
 namespace Sunnysideup\OrderUptime;
 
+use DateTime;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\HTTPResponse;
@@ -71,7 +72,7 @@ class OrderStatusLogSubmittedCreationMonitorController extends Controller
 
         // Use SilverStripe's DBDatetime for mockability (useful for unit tests)
         $nowStr = DBDatetime::now()->getValue();
-        $now    = new \DateTime($nowStr);
+        $now    = new DateTime($nowStr);
 
         // --- Adaptive widening loop -------------------------------------------
         $historicalCounts = [];
@@ -109,7 +110,7 @@ class OrderStatusLogSubmittedCreationMonitorController extends Controller
         $reliable = $activeWeeks >= $minActive;
 
         // --- Current period count ---------------------------------------------
-        $currentStart = (clone $now)->modify("-{$windowHrs} hours");
+        $currentStart = (clone $now)->modify(sprintf('-%d hours', $windowHrs));
         $currentEnd   = clone $now;
 
         $currentCount = OrderStatusLogSubmitted::get()->filter([
@@ -126,6 +127,7 @@ class OrderStatusLogSubmittedCreationMonitorController extends Controller
         foreach ($counts as $c) {
             $variance += ($c - $mean) ** 2;
         }
+
         $stdDev = $n > 1 ? sqrt($variance / ($n - 1)) : 0;
 
         $zScore = ($stdDev > 0) ? ($currentCount - $mean) / $stdDev : 0;
@@ -213,14 +215,14 @@ class OrderStatusLogSubmittedCreationMonitorController extends Controller
     /**
      * Gather creation counts for the same timeframe over the past $weeks weeks.
      */
-    private function gatherHistoricalCounts(\DateTime $now, int $weeks, int $windowHrs): array
+    private function gatherHistoricalCounts(DateTime $now, int $weeks, int $windowHrs): array
     {
         $results = [];
 
         for ($w = 1; $w <= $weeks; $w++) {
-            $anchor = (clone $now)->modify("-{$w} weeks");
+            $anchor = (clone $now)->modify(sprintf('-%d weeks', $w));
 
-            $windowStart = (clone $anchor)->modify("-{$windowHrs} hours");
+            $windowStart = (clone $anchor)->modify(sprintf('-%d hours', $windowHrs));
             $windowEnd   = clone $anchor;
 
             $count = OrderStatusLogSubmitted::get()->filter([
